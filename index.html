@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>生產力</title>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
   <style>
     :root {
       --bg: #0f0f13;
@@ -29,6 +34,34 @@
       flex-direction: column;
     }
 
+    /* ── Auth overlay ── */
+    #auth-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-card {
+      width: 360px; padding: 36px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    .auth-card h2 { font-size: 1.2rem; margin-bottom: 6px; }
+    .auth-card p { font-size: .82rem; color: var(--text2); margin-bottom: 24px; }
+    .auth-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .auth-field label { font-size: .75rem; color: var(--text2); }
+    .auth-field input {
+      padding: 10px 12px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); font-size: .9rem; outline: none;
+    }
+    .auth-field input:focus { border-color: var(--accent); }
+    .auth-error { font-size: .78rem; color: var(--accent2); margin-top: 10px; min-height: 18px; }
+    .auth-switch { font-size: .78rem; color: var(--text2); margin-top: 16px; text-align: center; }
+    .auth-switch button {
+      background: none; border: none; color: var(--accent);
+      cursor: pointer; font-size: .78rem; text-decoration: underline;
+    }
+
     /* ── Top bar ── */
     header {
       display: flex;
@@ -52,6 +85,7 @@
     }
     .nav-tab:hover { color: var(--text); border-color: var(--accent); }
     .nav-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
     .date-nav { display: flex; align-items: center; gap: 10px; }
     .date-nav button {
       background: none; border: 1px solid var(--border);
@@ -67,6 +101,18 @@
       background: none; color: var(--text2); cursor: pointer; transition: all .15s;
     }
     #today-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .sync-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green); flex-shrink: 0; transition: background .3s;
+    }
+    .sync-dot.saving { background: #f7c86a; }
+    .sync-dot.error { background: var(--accent2); }
+    .signout-btn {
+      padding: 5px 12px; font-size: .75rem;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: none; color: var(--text2); cursor: pointer; transition: all .15s;
+    }
+    .signout-btn:hover { color: var(--accent2); border-color: var(--accent2); }
 
     /* ── Main area ── */
     main { flex: 1; display: flex; overflow: hidden; }
@@ -86,9 +132,7 @@
     }
 
     /* ── Tasks ── */
-    .task-input-row {
-      display: flex; gap: 8px; margin-bottom: 14px;
-    }
+    .task-input-row { display: flex; gap: 8px; margin-bottom: 14px; }
     .task-input-row input {
       flex: 1; padding: 9px 12px;
       background: var(--surface2); border: 1px solid var(--border);
@@ -126,7 +170,6 @@
     }
     .task-item:hover .task-del { opacity: 1; }
     .task-del:hover { color: var(--accent2); }
-
     .task-stats { margin-bottom: 12px; font-size: .78rem; color: var(--text2); }
 
     /* ── Pomodoro ── */
@@ -141,9 +184,7 @@
       cursor: pointer; transition: all .15s;
     }
     .pomo-mode-tab.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
-    .timer-ring {
-      position: relative; width: 160px; height: 160px;
-    }
+    .timer-ring { position: relative; width: 160px; height: 160px; }
     .timer-ring svg { transform: rotate(-90deg); }
     .timer-ring circle { fill: none; stroke-width: 6; }
     .ring-bg { stroke: var(--border); }
@@ -193,9 +234,7 @@
     }
     .pomo-entry:hover .pomo-entry-del { opacity: 1; }
 
-    .pomo-summary {
-      display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap;
-    }
+    .pomo-summary { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
     .pomo-stat {
       flex: 1; min-width: 80px; padding: 10px 12px;
       background: var(--surface2); border: 1px solid var(--border);
@@ -226,7 +265,6 @@
     .seg-btn + .seg-btn { border-left: 1px solid var(--border); }
     .seg-btn.active { background: var(--accent); color: #fff; }
     .seg-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
-
     .analysis-range { display: flex; gap: 10px; align-items: center; }
     .analysis-range input[type=date] {
       padding: 6px 10px; background: var(--surface2);
@@ -256,13 +294,11 @@
     .analysis-section { margin-bottom: 24px; }
     .analysis-section h3 { font-size: .78rem; color: var(--text2); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 12px; }
 
-    /* Bar chart */
     .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding-bottom: 24px; position: relative; }
     .bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 0; }
     .bar {
       width: 100%; border-radius: 4px 4px 0 0; min-height: 3px;
-      transition: height .3s; cursor: default;
-      position: relative;
+      transition: height .3s; cursor: default; position: relative;
     }
     .bar:hover::after {
       content: attr(data-tip);
@@ -275,7 +311,6 @@
     .bar.task-bar { background: var(--green); }
     .bar-label { font-size: .65rem; color: var(--text2); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; width: 100%; text-align: center; }
 
-    /* Day list */
     .day-rows { display: flex; flex-direction: column; gap: 6px; }
     .day-row {
       display: flex; align-items: center; gap: 12px;
@@ -285,10 +320,7 @@
     .day-row:hover { border-color: var(--accent); }
     .day-row-date { font-size: .82rem; color: var(--text2); min-width: 90px; }
     .day-row-badges { display: flex; gap: 8px; flex: 1; }
-    .badge {
-      display: flex; align-items: center; gap: 5px;
-      font-size: .78rem; color: var(--text2);
-    }
+    .badge { display: flex; align-items: center; gap: 5px; font-size: .78rem; color: var(--text2); }
     .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
     .dot-pomo { background: var(--accent2); }
     .dot-task { background: var(--green); }
@@ -296,7 +328,6 @@
 
     .empty-state { text-align: center; color: var(--text2); font-size: .88rem; padding: 40px 0; }
 
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -304,17 +335,43 @@
 </head>
 <body>
 
+<!-- ── Auth overlay ── -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <h2 id="auth-title">Sign in</h2>
+    <p id="auth-subtitle">Your data syncs across all your devices.</p>
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password" />
+    </div>
+    <button class="btn-primary" id="auth-submit" style="width:100%">Sign in</button>
+    <div class="auth-error" id="auth-error"></div>
+    <div class="auth-switch">
+      <span id="auth-switch-text">Don't have an account?</span>
+      <button id="auth-switch-btn">Sign up</button>
+    </div>
+  </div>
+</div>
+
 <header>
   <h1>生產力</h1>
   <div class="nav-tabs">
     <button class="nav-tab active" data-view="daily">Daily</button>
     <button class="nav-tab" data-view="analysis">Analysis</button>
   </div>
-  <div class="date-nav">
-    <button id="prev-day">&#8249;</button>
-    <span id="date-display"></span>
-    <button id="next-day">&#8250;</button>
-    <button id="today-btn">Today</button>
+  <div class="header-right">
+    <div class="date-nav">
+      <button id="prev-day">&#8249;</button>
+      <span id="date-display"></span>
+      <button id="next-day">&#8250;</button>
+      <button id="today-btn">Today</button>
+    </div>
+    <div class="sync-dot" id="sync-dot" title="Synced"></div>
+    <button class="signout-btn" id="signout-btn">Sign out</button>
   </div>
 </header>
 
@@ -338,7 +395,6 @@
     <div class="panel" id="pomo-panel">
       <div class="panel-title">Pomodoros</div>
 
-      <!-- Timer -->
       <div class="pomo-timer">
         <div class="pomo-mode-tabs">
           <button class="pomo-mode-tab active" data-mode="work">Work</button>
@@ -349,8 +405,7 @@
           <svg width="160" height="160" viewBox="0 0 160 160">
             <circle class="ring-bg" cx="80" cy="80" r="72" />
             <circle class="ring-fg" id="ring-fg" cx="80" cy="80" r="72"
-              stroke-dasharray="452.39"
-              stroke-dashoffset="0" />
+              stroke-dasharray="452.39" stroke-dashoffset="0" />
           </svg>
           <div class="timer-text">
             <span class="timer-digits" id="timer-digits">25:00</span>
@@ -368,14 +423,10 @@
         </div>
       </div>
 
-      <!-- Summary -->
       <div class="pomo-summary" id="pomo-summary"></div>
-
-      <!-- Log -->
       <div class="pomo-log-title">Session Log</div>
       <div class="pomo-log" id="pomo-log"></div>
 
-      <!-- Notes separator -->
       <div class="panel-title" style="margin-top:20px;">Day Notes</div>
       <textarea class="notes-area" id="day-notes" placeholder="Reflections, thoughts, or anything about today…"></textarea>
     </div>
@@ -398,19 +449,15 @@
         <button class="btn-secondary" id="apply-range">Apply</button>
       </div>
     </div>
-
     <div class="analysis-grid" id="analysis-kpis"></div>
-
     <div class="analysis-section">
       <h3>Pomodoros per day</h3>
       <div class="bar-chart" id="pomo-chart"></div>
     </div>
-
     <div class="analysis-section">
       <h3>Tasks completed per day</h3>
       <div class="bar-chart" id="task-chart"></div>
     </div>
-
     <div class="analysis-section">
       <h3>Day-by-day breakdown</h3>
       <div class="day-rows" id="day-rows"></div>
@@ -421,30 +468,155 @@
 
 <script>
 // ─────────────────────────────────────────────
-//  Storage helpers
+//  Firebase init
 // ─────────────────────────────────────────────
-const KEY = 'pt_data_v1';
-function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
-}
-function save(data) { localStorage.setItem(KEY, JSON.stringify(data)); }
+firebase.initializeApp({
+  apiKey: "AIzaSyATCOaoU5J-6c_bZRfAZgyUu_OI2Ajsj58",
+  authDomain: "productivity-tracker-3a5f5.firebaseapp.com",
+  databaseURL: "https://productivity-tracker-3a5f5-default-rtdb.firebaseio.com",
+  projectId: "productivity-tracker-3a5f5",
+  storageBucket: "productivity-tracker-3a5f5.firebasestorage.app",
+  messagingSenderId: "544631304552",
+  appId: "1:544631304552:web:261086d1f637a168bd66dd",
+});
+const auth = firebase.auth();
+const db   = firebase.database();
 
-function dayKey(date) {
-  return date.toISOString().slice(0, 10);
+// ─────────────────────────────────────────────
+//  App state
+// ─────────────────────────────────────────────
+let appData = {};   // in-memory mirror of Firebase /users/{uid}/days
+let uid     = null;
+let dbRef   = null; // active Firebase ref for cleanup
+
+// ─────────────────────────────────────────────
+//  Sync helpers
+// ─────────────────────────────────────────────
+function setSyncStatus(s) {
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot' + (s === 'saving' ? ' saving' : s === 'error' ? ' error' : '');
+  dot.title = s === 'saving' ? 'Saving…' : s === 'error' ? 'Sync error' : 'Synced';
 }
 
-function getDay(data, key) {
-  if (!data[key]) data[key] = { tasks: [], pomos: [], notes: '' };
-  return data[key];
+function normalizeDay(d) {
+  const toArr = v => !v ? [] : Array.isArray(v) ? v.filter(Boolean) : Object.values(v).filter(Boolean);
+  return { tasks: toArr(d && d.tasks), pomos: toArr(d && d.pomos), notes: (d && d.notes) || '' };
+}
+
+function getDay(key) {
+  if (!appData[key]) appData[key] = { tasks: [], pomos: [], notes: '' };
+  return appData[key];
+}
+
+function saveDay(key) {
+  if (!uid) return;
+  setSyncStatus('saving');
+  db.ref('users/' + uid + '/days/' + key)
+    .set(appData[key] || { tasks: [], pomos: [], notes: '' })
+    .then(() => setSyncStatus('synced'))
+    .catch(() => setSyncStatus('error'));
+}
+
+// ─────────────────────────────────────────────
+//  Auth UI
+// ─────────────────────────────────────────────
+let authMode = 'signin';
+
+function setAuthMode(mode) {
+  authMode = mode;
+  document.getElementById('auth-title').textContent     = mode === 'signin' ? 'Sign in' : 'Create account';
+  document.getElementById('auth-subtitle').textContent  = mode === 'signin'
+    ? 'Your data syncs across all your devices.'
+    : 'Create your account to get started.';
+  document.getElementById('auth-submit').textContent    = mode === 'signin' ? 'Sign in' : 'Sign up';
+  document.getElementById('auth-switch-text').textContent = mode === 'signin' ? "Don't have an account?" : 'Already have an account?';
+  document.getElementById('auth-switch-btn').textContent  = mode === 'signin' ? 'Sign up' : 'Sign in';
+  document.getElementById('auth-error').textContent = '';
+}
+
+document.getElementById('auth-switch-btn').onclick = () => setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
+
+document.getElementById('auth-submit').onclick = async () => {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'Please fill in all fields.'; return; }
+  try {
+    if (authMode === 'signin') {
+      await auth.signInWithEmailAndPassword(email, pass);
+    } else {
+      await auth.createUserWithEmailAndPassword(email, pass);
+    }
+  } catch (e) {
+    const map = {
+      'auth/user-not-found':       'No account with that email.',
+      'auth/wrong-password':       'Incorrect password.',
+      'auth/invalid-credential':   'Incorrect email or password.',
+      'auth/email-already-in-use': 'Email already in use — sign in instead.',
+      'auth/weak-password':        'Password must be at least 6 characters.',
+      'auth/invalid-email':        'Invalid email address.',
+    };
+    errEl.textContent = map[e.code] || e.message;
+  }
+};
+
+['auth-email', 'auth-password'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('auth-submit').click();
+  });
+});
+
+document.getElementById('signout-btn').onclick = () => auth.signOut();
+
+// ─────────────────────────────────────────────
+//  Auth state → start/stop sync
+// ─────────────────────────────────────────────
+auth.onAuthStateChanged(user => {
+  if (user) {
+    uid = user.uid;
+    document.getElementById('auth-overlay').style.display = 'none';
+    startDataSync();
+  } else {
+    // Clean up listener before clearing uid
+    if (dbRef) { dbRef.off(); dbRef = null; }
+    uid = null;
+    appData = {};
+    document.getElementById('auth-overlay').style.display = 'flex';
+  }
+});
+
+function startDataSync() {
+  dbRef = db.ref('users/' + uid + '/days');
+  dbRef.on('value', snap => {
+    const raw = snap.val() || {};
+    Object.keys(raw).forEach(k => { raw[k] = normalizeDay(raw[k]); });
+    appData = raw;
+
+    // Don't clobber notes while the user is actively typing
+    const notesActive = document.activeElement === document.getElementById('day-notes');
+    renderTasks();
+    renderPomoLog();
+    renderPomoSummary();
+    if (!notesActive) {
+      document.getElementById('day-notes').value = getDay(dayKey(currentDate)).notes;
+    }
+    if (document.getElementById('analysis-view').classList.contains('active')) {
+      renderAnalysis();
+    }
+    setSyncStatus('synced');
+  }, () => setSyncStatus('error'));
+
+  setDate(new Date());
 }
 
 // ─────────────────────────────────────────────
 //  Date navigation
 // ─────────────────────────────────────────────
 let currentDate = new Date();
-currentDate.setHours(0,0,0,0);
+currentDate.setHours(0, 0, 0, 0);
 
-const dateDisplay = document.getElementById('date-display');
+function dayKey(d) { return d.toISOString().slice(0, 10); }
 
 function formatDateDisplay(d) {
   const today = new Date(); today.setHours(0,0,0,0);
@@ -454,17 +626,17 @@ function formatDateDisplay(d) {
 }
 
 function setDate(d) {
-  currentDate = new Date(d); currentDate.setHours(0,0,0,0);
-  dateDisplay.textContent = formatDateDisplay(currentDate);
-  renderDaily();
+  currentDate = new Date(d); currentDate.setHours(0, 0, 0, 0);
+  document.getElementById('date-display').textContent = formatDateDisplay(currentDate);
+  renderTasks();
+  renderPomoLog();
+  renderPomoSummary();
+  document.getElementById('day-notes').value = getDay(dayKey(currentDate)).notes;
+  resetTimer(timerState.mode);
 }
 
-document.getElementById('prev-day').onclick = () => {
-  const d = new Date(currentDate); d.setDate(d.getDate() - 1); setDate(d);
-};
-document.getElementById('next-day').onclick = () => {
-  const d = new Date(currentDate); d.setDate(d.getDate() + 1); setDate(d);
-};
+document.getElementById('prev-day').onclick = () => { const d = new Date(currentDate); d.setDate(d.getDate()-1); setDate(d); };
+document.getElementById('next-day').onclick = () => { const d = new Date(currentDate); d.setDate(d.getDate()+1); setDate(d); };
 document.getElementById('today-btn').onclick = () => setDate(new Date());
 
 // ─────────────────────────────────────────────
@@ -484,27 +656,25 @@ document.querySelectorAll('.nav-tab').forEach(btn => {
 //  Tasks
 // ─────────────────────────────────────────────
 function renderTasks() {
-  const data = load();
-  const key = dayKey(currentDate);
-  const day = getDay(data, key);
+  const key  = dayKey(currentDate);
+  const day  = getDay(key);
   const list = document.getElementById('task-list');
-  const stats = document.getElementById('task-stats');
-
   const done = day.tasks.filter(t => t.done).length;
-  stats.textContent = day.tasks.length
-    ? `${done} / ${day.tasks.length} completed`
+  document.getElementById('task-stats').textContent = day.tasks.length
+    ? done + ' / ' + day.tasks.length + ' completed'
     : 'No tasks yet.';
 
   list.innerHTML = '';
   day.tasks.forEach((t, i) => {
-    const el = document.createElement('div');
+    const el  = document.createElement('div');
     el.className = 'task-item' + (t.done ? ' done' : '');
 
     const chk = document.createElement('button');
     chk.className = 'task-check';
     chk.title = t.done ? 'Mark incomplete' : 'Mark complete';
     chk.onclick = () => {
-      const d2 = load(); getDay(d2, key).tasks[i].done = !t.done; save(d2); renderTasks();
+      getDay(key).tasks[i].done = !getDay(key).tasks[i].done;
+      saveDay(key); renderTasks();
     };
 
     const txt = document.createElement('span');
@@ -515,9 +685,7 @@ function renderTasks() {
     del.className = 'task-del';
     del.textContent = '×';
     del.title = 'Delete';
-    del.onclick = () => {
-      const d2 = load(); getDay(d2, key).tasks.splice(i, 1); save(d2); renderTasks();
-    };
+    del.onclick = () => { getDay(key).tasks.splice(i, 1); saveDay(key); renderTasks(); };
 
     el.append(chk, txt, del);
     list.appendChild(el);
@@ -525,12 +693,12 @@ function renderTasks() {
 }
 
 function addTask() {
-  const inp = document.getElementById('task-input');
+  const inp  = document.getElementById('task-input');
   const text = inp.value.trim();
   if (!text) return;
-  const data = load(); const key = dayKey(currentDate);
-  getDay(data, key).tasks.push({ text, done: false });
-  save(data); inp.value = ''; renderTasks();
+  const key = dayKey(currentDate);
+  getDay(key).tasks.push({ text, done: false });
+  saveDay(key); inp.value = ''; renderTasks();
 }
 
 document.getElementById('add-task-btn').onclick = addTask;
@@ -539,14 +707,14 @@ document.getElementById('task-input').addEventListener('keydown', e => { if (e.k
 // ─────────────────────────────────────────────
 //  Pomodoro timer
 // ─────────────────────────────────────────────
-const CIRC = 2 * Math.PI * 72; // 452.39
+const CIRC = 2 * Math.PI * 72;
 let timerState = { running: false, mode: 'work', remaining: 0, total: 0, interval: null };
 
 function cfgDurations() {
   return {
-    work: parseInt(document.getElementById('cfg-work').value) * 60 || 1500,
+    work:  parseInt(document.getElementById('cfg-work').value)  * 60 || 1500,
     short: parseInt(document.getElementById('cfg-short').value) * 60 || 300,
-    long: parseInt(document.getElementById('cfg-long').value) * 60 || 900,
+    long:  parseInt(document.getElementById('cfg-long').value)  * 60 || 900,
   };
 }
 
@@ -561,26 +729,23 @@ function renderTimerFace() {
   const { remaining, total, mode, running } = timerState;
   const m = Math.floor(remaining / 60).toString().padStart(2, '0');
   const s = (remaining % 60).toString().padStart(2, '0');
-  document.getElementById('timer-digits').textContent = `${m}:${s}`;
-  const labels = { work: 'Work', short: 'Short Break', long: 'Long Break' };
-  document.getElementById('timer-label').textContent = labels[mode];
+  document.getElementById('timer-digits').textContent = m + ':' + s;
+  document.getElementById('timer-label').textContent = { work: 'Work', short: 'Short Break', long: 'Long Break' }[mode];
   const pct = total > 0 ? remaining / total : 1;
   document.getElementById('ring-fg').style.strokeDashoffset = CIRC * (1 - pct);
   document.getElementById('pomo-start').textContent = running ? 'Pause' : (remaining < total ? 'Resume' : 'Start');
 }
 
 function logPomodoro(mode) {
-  const data = load(); const key = dayKey(currentDate);
-  const day = getDay(data, key);
-  const labels = { work: 'Work', short: 'Short Break', long: 'Long Break' };
+  const key = dayKey(currentDate);
   const dur = cfgDurations()[mode];
-  day.pomos.push({
+  getDay(key).pomos.push({
     type: mode,
-    label: labels[mode],
+    label: { work: 'Work', short: 'Short Break', long: 'Long Break' }[mode],
     duration: dur,
     completedAt: new Date().toISOString(),
   });
-  save(data);
+  saveDay(key);
   renderPomoLog();
   renderPomoSummary();
 }
@@ -588,10 +753,8 @@ function logPomodoro(mode) {
 function startTimer() {
   if (timerState.running) {
     clearInterval(timerState.interval);
-    timerState.running = false;
-    timerState.interval = null;
-    renderTimerFace();
-    return;
+    timerState.running = false; timerState.interval = null;
+    renderTimerFace(); return;
   }
   timerState.running = true;
   timerState.interval = setInterval(() => {
@@ -599,26 +762,23 @@ function startTimer() {
     renderTimerFace();
     if (timerState.remaining <= 0) {
       clearInterval(timerState.interval);
-      timerState.running = false;
-      timerState.interval = null;
+      timerState.running = false; timerState.interval = null;
       logPomodoro(timerState.mode);
-      notify(timerState.mode);
+      sendNotification(timerState.mode);
       resetTimer(timerState.mode);
     }
   }, 1000);
   renderTimerFace();
 }
 
-function notify(mode) {
+function sendNotification(mode) {
+  if (Notification.permission !== 'granted') return;
   const msgs = { work: 'Work session done! Take a break.', short: 'Break over! Back to work.', long: 'Long break done! Ready to focus?' };
-  if (Notification.permission === 'granted') {
-    new Notification('Productivity Tracker', { body: msgs[mode], icon: '' });
-  }
+  new Notification('生產力', { body: msgs[mode] });
 }
 
 document.getElementById('pomo-start').onclick = startTimer;
 document.getElementById('pomo-reset').onclick = () => resetTimer(timerState.mode);
-
 document.querySelectorAll('.pomo-mode-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.pomo-mode-tab').forEach(b => b.classList.remove('active'));
@@ -626,7 +786,6 @@ document.querySelectorAll('.pomo-mode-tab').forEach(btn => {
     resetTimer(btn.dataset.mode);
   });
 });
-
 ['cfg-work','cfg-short','cfg-long'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => resetTimer(timerState.mode));
 });
@@ -635,39 +794,35 @@ document.querySelectorAll('.pomo-mode-tab').forEach(btn => {
 //  Pomodoro log + summary
 // ─────────────────────────────────────────────
 function renderPomoSummary() {
-  const data = load(); const key = dayKey(currentDate);
-  const day = getDay(data, key);
-  const workSessions = day.pomos.filter(p => p.type === 'work');
-  const workMin = Math.round(workSessions.reduce((a, p) => a + p.duration, 0) / 60);
-  const breaks = day.pomos.filter(p => p.type !== 'work').length;
-  const el = document.getElementById('pomo-summary');
-  el.innerHTML = `
-    <div class="pomo-stat"><div class="pomo-stat-val" style="color:var(--accent2)">${workSessions.length}</div><div class="pomo-stat-lbl">Sessions</div></div>
-    <div class="pomo-stat"><div class="pomo-stat-val" style="color:var(--accent)">${workMin}m</div><div class="pomo-stat-lbl">Focus time</div></div>
-    <div class="pomo-stat"><div class="pomo-stat-val" style="color:var(--green)">${breaks}</div><div class="pomo-stat-lbl">Breaks</div></div>
-  `;
+  const day  = getDay(dayKey(currentDate));
+  const work = day.pomos.filter(p => p.type === 'work');
+  const focusMin = Math.round(work.reduce((a, p) => a + p.duration, 0) / 60);
+  const breaks   = day.pomos.filter(p => p.type !== 'work').length;
+  document.getElementById('pomo-summary').innerHTML =
+    '<div class="pomo-stat"><div class="pomo-stat-val" style="color:var(--accent2)">' + work.length + '</div><div class="pomo-stat-lbl">Sessions</div></div>' +
+    '<div class="pomo-stat"><div class="pomo-stat-val" style="color:var(--accent)">' + focusMin + 'm</div><div class="pomo-stat-lbl">Focus time</div></div>' +
+    '<div class="pomo-stat"><div class="pomo-stat-val" style="color:var(--green)">' + breaks + '</div><div class="pomo-stat-lbl">Breaks</div></div>';
 }
 
 function renderPomoLog() {
-  const data = load(); const key = dayKey(currentDate);
-  const day = getDay(data, key);
-  const el = document.getElementById('pomo-log');
+  const key = dayKey(currentDate);
+  const day = getDay(key);
+  const el  = document.getElementById('pomo-log');
   if (!day.pomos.length) { el.innerHTML = '<div class="empty-state">No sessions logged yet.</div>'; return; }
   el.innerHTML = '';
   [...day.pomos].reverse().forEach((p, ri) => {
     const i = day.pomos.length - 1 - ri;
     const tagClass = p.type === 'work' ? 'tag-work' : p.type === 'short' ? 'tag-short' : 'tag-long';
-    const time = new Date(p.completedAt).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
-    const durMin = Math.round(p.duration / 60);
+    const time     = new Date(p.completedAt).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+    const durMin   = Math.round(p.duration / 60);
     const row = document.createElement('div');
     row.className = 'pomo-entry';
-    row.innerHTML = `
-      <span class="pomo-entry-tag ${tagClass}">${p.label}</span>
-      <span style="font-size:.8rem;color:var(--text2)">${durMin} min · ${time}</span>
-      <button class="pomo-entry-del" title="Delete">×</button>
-    `;
+    row.innerHTML =
+      '<span class="pomo-entry-tag ' + tagClass + '">' + p.label + '</span>' +
+      '<span style="font-size:.8rem;color:var(--text2)">' + durMin + ' min · ' + time + '</span>' +
+      '<button class="pomo-entry-del" title="Delete">×</button>';
     row.querySelector('.pomo-entry-del').onclick = () => {
-      const d2 = load(); getDay(d2, key).pomos.splice(i, 1); save(d2); renderPomoLog(); renderPomoSummary();
+      getDay(key).pomos.splice(i, 1); saveDay(key); renderPomoLog(); renderPomoSummary();
     };
     el.appendChild(row);
   });
@@ -676,31 +831,18 @@ function renderPomoLog() {
 // ─────────────────────────────────────────────
 //  Notes
 // ─────────────────────────────────────────────
-const notesArea = document.getElementById('day-notes');
 let notesSaveTimer = null;
-notesArea.addEventListener('input', () => {
+document.getElementById('day-notes').addEventListener('input', () => {
   clearTimeout(notesSaveTimer);
   notesSaveTimer = setTimeout(() => {
-    const data = load(); const key = dayKey(currentDate);
-    getDay(data, key).notes = notesArea.value;
-    save(data);
-  }, 400);
+    const key = dayKey(currentDate);
+    getDay(key).notes = document.getElementById('day-notes').value;
+    saveDay(key);
+  }, 600);
 });
 
 // ─────────────────────────────────────────────
-//  Render daily view
-// ─────────────────────────────────────────────
-function renderDaily() {
-  renderTasks();
-  renderPomoLog();
-  renderPomoSummary();
-  const data = load(); const key = dayKey(currentDate);
-  notesArea.value = getDay(data, key).notes || '';
-  resetTimer(timerState.mode);
-}
-
-// ─────────────────────────────────────────────
-//  Analysis view
+//  Analysis
 // ─────────────────────────────────────────────
 let analysisRange = 'week';
 let customFrom = null, customTo = null;
@@ -717,104 +859,73 @@ document.querySelectorAll('.seg-btn').forEach(btn => {
 
 document.getElementById('apply-range').onclick = () => {
   customFrom = document.getElementById('range-from').value;
-  customTo = document.getElementById('range-to').value;
+  customTo   = document.getElementById('range-to').value;
   if (customFrom && customTo) renderAnalysis();
 };
 
 function getRangeDates() {
   const today = new Date(); today.setHours(0,0,0,0);
   let from = new Date(today), to = new Date(today);
-
-  if (analysisRange === 'week') {
-    from.setDate(today.getDate() - 6);
-  } else if (analysisRange === 'month') {
-    from.setDate(today.getDate() - 29);
-  } else if (analysisRange === 'year') {
-    from.setDate(today.getDate() - 364);
-  } else if (analysisRange === 'custom' && customFrom && customTo) {
+  if      (analysisRange === 'week')   from.setDate(today.getDate() - 6);
+  else if (analysisRange === 'month')  from.setDate(today.getDate() - 29);
+  else if (analysisRange === 'year')   from.setDate(today.getDate() - 364);
+  else if (analysisRange === 'custom' && customFrom && customTo) {
     from = new Date(customFrom + 'T00:00:00');
-    to = new Date(customTo + 'T00:00:00');
+    to   = new Date(customTo   + 'T00:00:00');
   }
   return { from, to };
 }
 
 function daysInRange(from, to) {
-  const days = [];
-  const cur = new Date(from);
+  const days = [], cur = new Date(from);
   while (cur <= to) { days.push(dayKey(cur)); cur.setDate(cur.getDate() + 1); }
   return days;
 }
 
 function renderAnalysis() {
-  const data = load();
   const { from, to } = getRangeDates();
   const days = daysInRange(from, to);
 
-  // KPIs
   let totalWork = 0, totalFocusMin = 0, totalTasks = 0, totalDone = 0, activeDays = 0;
   days.forEach(k => {
-    const d = data[k];
-    if (!d) return;
+    const d = appData[k]; if (!d) return;
     const work = (d.pomos || []).filter(p => p.type === 'work');
-    totalWork += work.length;
+    totalWork     += work.length;
     totalFocusMin += work.reduce((a, p) => a + p.duration, 0);
-    totalTasks += (d.tasks || []).length;
-    totalDone += (d.tasks || []).filter(t => t.done).length;
+    totalTasks    += (d.tasks || []).length;
+    totalDone     += (d.tasks || []).filter(t => t.done).length;
     if (work.length || (d.tasks || []).length) activeDays++;
   });
-
   const avgWork = days.length ? (totalWork / days.length).toFixed(1) : 0;
-  const kpiEl = document.getElementById('analysis-kpis');
-  kpiEl.innerHTML = `
-    <div class="kpi-card accent-pomo">
-      <div class="val">${totalWork}</div>
-      <div class="lbl">Work sessions</div>
-      <div class="sub">${Math.round(totalFocusMin/60)}h ${Math.round(totalFocusMin%60)}m focus</div>
-    </div>
-    <div class="kpi-card accent-pomo">
-      <div class="val">${avgWork}</div>
-      <div class="lbl">Sessions / day avg</div>
-      <div class="sub">over ${days.length} days</div>
-    </div>
-    <div class="kpi-card accent-tasks">
-      <div class="val">${totalDone}</div>
-      <div class="lbl">Tasks completed</div>
-      <div class="sub">${totalTasks} total created</div>
-    </div>
-    <div class="kpi-card accent-work">
-      <div class="val">${totalTasks ? Math.round(totalDone/totalTasks*100) : 0}%</div>
-      <div class="lbl">Completion rate</div>
-      <div class="sub">${activeDays} active days</div>
-    </div>
-  `;
 
-  // Bar charts
-  renderBarChart('pomo-chart', days, data, d => (d?.pomos||[]).filter(p=>p.type==='work').length, 'pomo-bar', v => `${v} session${v!==1?'s':''}`);
-  renderBarChart('task-chart', days, data, d => (d?.tasks||[]).filter(t=>t.done).length, 'task-bar', v => `${v} done`);
+  document.getElementById('analysis-kpis').innerHTML =
+    '<div class="kpi-card accent-pomo"><div class="val">' + totalWork + '</div><div class="lbl">Work sessions</div><div class="sub">' + Math.round(totalFocusMin/60) + 'h ' + Math.round(totalFocusMin%60) + 'm focus</div></div>' +
+    '<div class="kpi-card accent-pomo"><div class="val">' + avgWork + '</div><div class="lbl">Sessions / day avg</div><div class="sub">over ' + days.length + ' days</div></div>' +
+    '<div class="kpi-card accent-tasks"><div class="val">' + totalDone + '</div><div class="lbl">Tasks completed</div><div class="sub">' + totalTasks + ' total created</div></div>' +
+    '<div class="kpi-card accent-work"><div class="val">' + (totalTasks ? Math.round(totalDone/totalTasks*100) : 0) + '%</div><div class="lbl">Completion rate</div><div class="sub">' + activeDays + ' active days</div></div>';
 
-  // Day rows
+  renderBarChart('pomo-chart', days, d => (d && d.pomos || []).filter(p => p.type==='work').length, 'pomo-bar', v => v + ' session' + (v!==1?'s':''));
+  renderBarChart('task-chart', days, d => (d && d.tasks || []).filter(t => t.done).length, 'task-bar', v => v + ' done');
+
   const rowEl = document.getElementById('day-rows');
   rowEl.innerHTML = '';
-  const activeDayKeys = [...days].reverse().filter(k => data[k] && ((data[k].pomos||[]).length || (data[k].tasks||[]).length));
-  if (!activeDayKeys.length) {
-    rowEl.innerHTML = '<div class="empty-state">No data in this range yet.</div>'; return;
-  }
-  activeDayKeys.forEach(k => {
-    const d = data[k];
+  const active = [...days].reverse().filter(k => appData[k] && ((appData[k].pomos||[]).length || (appData[k].tasks||[]).length));
+  if (!active.length) { rowEl.innerHTML = '<div class="empty-state">No data in this range yet.</div>'; return; }
+  active.forEach(k => {
+    const d         = appData[k];
     const workCount = (d.pomos||[]).filter(p=>p.type==='work').length;
-    const taskDone = (d.tasks||[]).filter(t=>t.done).length;
+    const taskDone  = (d.tasks||[]).filter(t=>t.done).length;
     const taskTotal = (d.tasks||[]).length;
-    const date = new Date(k + 'T00:00:00');
+    const date      = new Date(k + 'T00:00:00');
     const row = document.createElement('div');
     row.className = 'day-row';
-    row.innerHTML = `
-      <span class="day-row-date">${date.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span>
-      <div class="day-row-badges">
-        <span class="badge"><span class="badge-dot dot-pomo"></span>${workCount} session${workCount!==1?'s':''}</span>
-        <span class="badge"><span class="badge-dot dot-task"></span>${taskDone}/${taskTotal} tasks</span>
-      </div>
-      ${d.notes ? `<span class="day-row-note">${escHtml(d.notes)}</span>` : ''}
-    `;
+    row.innerHTML =
+      '<span class="day-row-date">' + date.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) + '</span>' +
+      '<div class="day-row-badges">' +
+        '<span class="badge"><span class="badge-dot dot-pomo"></span>' + workCount + ' session' + (workCount!==1?'s':'') + '</span>' +
+        '<span class="badge"><span class="badge-dot dot-task"></span>' + taskDone + '/' + taskTotal + ' tasks</span>' +
+      '</div>' +
+      (d.notes ? '<span class="day-row-note">' + escHtml(d.notes) + '</span>' : '');
     row.onclick = () => {
       setDate(date);
       document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
@@ -826,29 +937,24 @@ function renderAnalysis() {
   });
 }
 
-function renderBarChart(id, days, data, valueFn, barClass, tipFn) {
+function renderBarChart(id, days, valueFn, barClass, tipFn) {
   const el = document.getElementById(id);
   el.innerHTML = '';
-  const values = days.map(k => valueFn(data[k]));
-  const max = Math.max(...values, 1);
-  const showLabels = days.length <= 31;
-
+  const values   = days.map(k => valueFn(appData[k]));
+  const max      = Math.max(...values, 1);
+  const showLbls = days.length <= 31;
   days.forEach((k, i) => {
-    const v = values[i];
-    const pct = v / max;
+    const v    = values[i];
     const date = new Date(k + 'T00:00:00');
-    const lbl = date.toLocaleDateString('en-US', days.length <= 14 ? {weekday:'short'} : {month:'short',day:'numeric'});
-    const col = document.createElement('div');
-    col.className = 'bar-col';
-    const bar = document.createElement('div');
-    bar.className = `bar ${barClass}`;
-    bar.style.height = `${Math.max(pct * 90, v > 0 ? 4 : 0)}px`;
-    bar.dataset.tip = `${k}: ${tipFn(v)}`;
+    const lbl  = date.toLocaleDateString('en-US', days.length <= 14 ? {weekday:'short'} : {month:'short',day:'numeric'});
+    const col  = document.createElement('div'); col.className = 'bar-col';
+    const bar  = document.createElement('div');
+    bar.className = 'bar ' + barClass;
+    bar.style.height = Math.max(v/max * 90, v > 0 ? 4 : 0) + 'px';
+    bar.dataset.tip  = k + ': ' + tipFn(v);
     col.appendChild(bar);
-    if (showLabels) {
-      const label = document.createElement('div');
-      label.className = 'bar-label';
-      label.textContent = lbl;
+    if (showLbls) {
+      const label = document.createElement('div'); label.className = 'bar-label'; label.textContent = lbl;
       col.appendChild(label);
     }
     el.appendChild(col);
@@ -863,7 +969,7 @@ function escHtml(s) {
 //  Init
 // ─────────────────────────────────────────────
 if (Notification.permission === 'default') Notification.requestPermission();
-setDate(new Date());
+resetTimer('work');
 </script>
 </body>
 </html>
