@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>生產力</title>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #22222f;
+      --border: #2e2e3f;
+      --accent: #7c6af7;
+      --accent2: #f7826a;
+      --green: #4caf7d;
+      --text: #e8e8f0;
+      --text2: #9090aa;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top bar ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 1.1rem; letter-spacing: .05em; color: var(--accent); }
+    .nav-tabs { display: flex; gap: 6px; }
+    .nav-tab {
+      padding: 7px 18px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: none;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: .85rem;
+      transition: all .15s;
+    }
+    .nav-tab:hover { color: var(--text); border-color: var(--accent); }
+    .nav-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .date-nav { display: flex; align-items: center; gap: 10px; }
+    .date-nav button {
+      background: none; border: 1px solid var(--border);
+      color: var(--text2); border-radius: 6px;
+      padding: 5px 10px; cursor: pointer; font-size: .9rem;
+      transition: all .15s;
+    }
+    .date-nav button:hover { color: var(--text); border-color: var(--accent); }
+    #date-display { font-size: .9rem; color: var(--text2); min-width: 160px; text-align: center; }
+    #today-btn {
+      padding: 5px 12px; font-size: .78rem;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: none; color: var(--text2); cursor: pointer; transition: all .15s;
+    }
+    #today-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Main area ── */
+    main { flex: 1; display: flex; overflow: hidden; }
+    .view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .view.active { display: flex; }
+
+    /* ── Daily view ── */
+    #daily-view { flex-direction: row; }
+    .panel {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 20px; overflow-y: auto;
+    }
+    .panel + .panel { border-left: 1px solid var(--border); }
+    .panel-title {
+      font-size: .7rem; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--text2); margin-bottom: 14px;
+    }
+
+    /* ── Tasks ── */
+    .task-input-row {
+      display: flex; gap: 8px; margin-bottom: 14px;
+    }
+    .task-input-row input {
+      flex: 1; padding: 9px 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-size: .9rem;
+      outline: none;
+    }
+    .task-input-row input:focus { border-color: var(--accent); }
+    .btn-primary {
+      padding: 9px 16px; background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius); cursor: pointer;
+      font-size: .85rem; transition: opacity .15s;
+    }
+    .btn-primary:hover { opacity: .85; }
+
+    .task-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 12px; background: var(--surface2);
+      border-radius: var(--radius); margin-bottom: 8px;
+      border: 1px solid var(--border); transition: all .15s;
+    }
+    .task-item.done { opacity: .5; }
+    .task-item.done .task-text { text-decoration: line-through; color: var(--text2); }
+    .task-check {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid var(--border); background: none;
+      cursor: pointer; flex-shrink: 0; margin-top: 1px;
+      transition: all .15s;
+    }
+    .task-check:hover { border-color: var(--green); }
+    .task-item.done .task-check { background: var(--green); border-color: var(--green); }
+    .task-text { flex: 1; font-size: .9rem; line-height: 1.4; word-break: break-word; }
+    .task-del {
+      background: none; border: none; color: var(--text2); cursor: pointer;
+      font-size: 1rem; padding: 0 4px; opacity: 0; transition: opacity .15s;
+    }
+    .task-item:hover .task-del { opacity: 1; }
+    .task-del:hover { color: var(--accent2); }
+
+    .task-stats { margin-bottom: 12px; font-size: .78rem; color: var(--text2); }
+
+    /* ── Pomodoro ── */
+    .pomo-timer {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px 0 16px; gap: 10px;
+    }
+    .pomo-mode-tabs { display: flex; gap: 6px; margin-bottom: 4px; }
+    .pomo-mode-tab {
+      padding: 5px 14px; border-radius: 16px; font-size: .78rem;
+      background: none; border: 1px solid var(--border); color: var(--text2);
+      cursor: pointer; transition: all .15s;
+    }
+    .pomo-mode-tab.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+    .timer-ring {
+      position: relative; width: 160px; height: 160px;
+    }
+    .timer-ring svg { transform: rotate(-90deg); }
+    .timer-ring circle { fill: none; stroke-width: 6; }
+    .ring-bg { stroke: var(--border); }
+    .ring-fg { stroke: var(--accent2); stroke-linecap: round; transition: stroke-dashoffset .9s linear; }
+    .timer-text {
+      position: absolute; inset: 0; display: flex;
+      flex-direction: column; align-items: center; justify-content: center;
+    }
+    .timer-digits { font-size: 2.4rem; font-weight: 700; letter-spacing: .04em; }
+    .timer-label { font-size: .65rem; color: var(--text2); letter-spacing: .1em; text-transform: uppercase; }
+    .pomo-controls { display: flex; gap: 10px; }
+    .pomo-btn {
+      padding: 9px 22px; border-radius: var(--radius); cursor: pointer;
+      font-size: .85rem; border: none; transition: opacity .15s;
+    }
+    .pomo-btn.start { background: var(--accent2); color: #fff; }
+    .pomo-btn.reset { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); }
+    .pomo-btn:hover { opacity: .85; }
+
+    .pomo-settings { display: flex; gap: 16px; font-size: .8rem; color: var(--text2); margin-top: 2px; }
+    .pomo-settings label { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+    .pomo-settings input[type=number] {
+      width: 52px; padding: 4px 6px; text-align: center;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 6px; font-size: .85rem; outline: none;
+    }
+    .pomo-settings input:focus { border-color: var(--accent2); }
+
+    .pomo-log-title { font-size: .75rem; color: var(--text2); letter-spacing: .08em; margin: 6px 0 8px; text-transform: uppercase; }
+    .pomo-log { display: flex; flex-direction: column; gap: 6px; }
+    .pomo-entry {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; background: var(--surface2);
+      border-radius: var(--radius); border: 1px solid var(--border);
+      font-size: .83rem;
+    }
+    .pomo-entry-tag {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: .72rem; font-weight: 600; text-transform: uppercase;
+    }
+    .tag-work { background: rgba(124,106,247,.2); color: var(--accent); }
+    .tag-short { background: rgba(76,175,125,.2); color: var(--green); }
+    .tag-long { background: rgba(247,130,106,.2); color: var(--accent2); }
+    .pomo-entry-del {
+      background: none; border: none; color: var(--text2); cursor: pointer;
+      font-size: .9rem; opacity: 0; transition: opacity .15s;
+    }
+    .pomo-entry:hover .pomo-entry-del { opacity: 1; }
+
+    .pomo-summary {
+      display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .pomo-stat {
+      flex: 1; min-width: 80px; padding: 10px 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); text-align: center;
+    }
+    .pomo-stat-val { font-size: 1.5rem; font-weight: 700; }
+    .pomo-stat-lbl { font-size: .68rem; color: var(--text2); letter-spacing: .08em; text-transform: uppercase; }
+
+    /* ── Notes ── */
+    .notes-area {
+      width: 100%; flex: 1; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text); font-size: .9rem; line-height: 1.6;
+      padding: 12px; resize: none; outline: none; font-family: inherit;
+      min-height: 120px;
+    }
+    .notes-area:focus { border-color: var(--accent); }
+
+    /* ── Analysis view ── */
+    #analysis-view { padding: 24px; overflow-y: auto; }
+    .analysis-header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+    .analysis-header h2 { font-size: 1.1rem; color: var(--text2); font-weight: 400; }
+    .seg-control { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .seg-btn {
+      padding: 7px 16px; background: none; border: none;
+      color: var(--text2); cursor: pointer; font-size: .82rem; transition: all .15s;
+    }
+    .seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+    .seg-btn.active { background: var(--accent); color: #fff; }
+    .seg-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+    .analysis-range { display: flex; gap: 10px; align-items: center; }
+    .analysis-range input[type=date] {
+      padding: 6px 10px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: .82rem; outline: none;
+    }
+    .analysis-range input:focus { border-color: var(--accent); }
+    .btn-secondary {
+      padding: 7px 14px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text2); cursor: pointer; font-size: .82rem; transition: all .15s;
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--accent); }
+
+    .analysis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .kpi-card {
+      padding: 18px 16px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .kpi-card .val { font-size: 2rem; font-weight: 700; }
+    .kpi-card .lbl { font-size: .72rem; color: var(--text2); text-transform: uppercase; letter-spacing: .09em; margin-top: 4px; }
+    .kpi-card .sub { font-size: .78rem; color: var(--text2); margin-top: 6px; }
+    .kpi-card.accent-work .val { color: var(--accent); }
+    .kpi-card.accent-tasks .val { color: var(--green); }
+    .kpi-card.accent-pomo .val { color: var(--accent2); }
+
+    .analysis-section { margin-bottom: 24px; }
+    .analysis-section h3 { font-size: .78rem; color: var(--text2); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 12px; }
+
+    /* Bar chart */
+    .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding-bottom: 24px; position: relative; }
+    .bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+    .bar {
+      width: 100%; border-radius: 4px 4px 0 0; min-height: 3px;
+      transition: height .3s; cursor: default;
+      position: relative;
+    }
+    .bar:hover::after {
+      content: attr(data-tip);
+      position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%);
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-size: .72rem; padding: 3px 8px; border-radius: 5px;
+      white-space: nowrap; pointer-events: none;
+    }
+    .bar.pomo-bar { background: var(--accent2); }
+    .bar.task-bar { background: var(--green); }
+    .bar-label { font-size: .65rem; color: var(--text2); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; width: 100%; text-align: center; }
+
+    /* Day list */
+    .day-rows { display: flex; flex-direction: column; gap: 6px; }
+    .day-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); cursor: pointer; transition: border-color .15s;
+    }
+    .day-row:hover { border-color: var(--accent); }
+    .day-row-date { font-size: .82rem; color: var(--text2); min-width: 90px; }
+    .day-row-badges { display: flex; gap: 8px; flex: 1; }
+    .badge {
+      display: flex; align-items: center; gap: 5px;
+      font-size: .78rem; color: var(--text2);
+    }
+    .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-pomo { background: var(--accent2); }
+    .dot-task { background: var(--green); }
+    .day-row-note { font-size: .75rem; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+
+    .empty-state { text-align: center; color: var(--text2); font-size: .88rem; padding: 40px 0; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>生產力</h1>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-view="daily">Daily</button>
+    <button class="nav-tab" data-view="analysis">Analysis</button>
+  </div>
+  <div class="date-nav">
+    <button id="prev-day">&#8249;</button>
+    <span id="date-display"></span>
+    <button id="next-day">&#8250;</button>
+    <button id="today-btn">Today</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── DAILY VIEW ── -->
+  <div id="daily-view" class="view active">
+
+    <!-- Tasks panel -->
+    <div class="panel" id="tasks-panel">
+      <div class="panel-title">Tasks</div>
+      <div class="task-input-row">
+        <input id="task-input" type="text" placeholder="Add a task…" />
+        <button class="btn-primary" id="add-task-btn">Add</button>
+      </div>
+      <div class="task-stats" id="task-stats"></div>
+      <div id="task-list"></div>
+    </div>
+
+    <!-- Pomodoro + Notes panel -->
+    <div class="panel" id="pomo-panel">
+      <div class="panel-title">Pomodoros</div>
+
+      <!-- Timer -->
+      <div class="pomo-timer">
+        <div class="pomo-mode-tabs">
+          <button class="pomo-mode-tab active" data-mode="work">Work</button>
+          <button class="pomo-mode-tab" data-mode="short">Short Break</button>
+          <button class="pomo-mode-tab" data-mode="long">Long Break</button>
+        </div>
+        <div class="timer-ring">
+          <svg width="160" height="160" viewBox="0 0 160 160">
+            <circle class="ring-bg" cx="80" cy="80" r="72" />
+            <circle class="ring-fg" id="ring-fg" cx="80" cy="80" r="72"
+              stroke-dasharray="452.39"
+              stroke-dashoffset="0" />
+          </svg>
+          <div class="timer-text">
+            <span class="timer-digits" id="timer-digits">25:00</span>
+            <span class="timer-label" id="timer-label">Work</span>
+          </div>
+        </div>
+        <div class="pomo-controls">
+          <button class="pomo-btn start" id="pomo-start">Start</button>
+          <button class="pomo-btn reset" id="pomo-reset">Reset</button>
+        </div>
+        <div class="pomo-settings">
+          <label>Work (min)<input type="number" id="cfg-work" value="25" min="1" max="90" /></label>
+          <label>Short break<input type="number" id="cfg-short" value="5" min="1" max="30" /></label>
+          <label>Long break<input type="number" id="cfg-long" value="15" min="1" max="60" /></label>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="pomo-summary" id="pomo-summary"></div>
+
+      <!-- Log -->
+      <div class="pomo-log-title">Session Log</div>
+      <div class="pomo-log" id="pomo-log"></div>
+
+      <!-- Notes separator -->
+      <div class="panel-title" style="margin-top:20px;">Day Notes</div>
+      <textarea class="notes-area" id="day-notes" placeholder="Reflections, thoughts, or anything about today…"></textarea>
+    </div>
+  </div>
+
+  <!-- ── ANALYSIS VIEW ── -->
+  <div id="analysis-view" class="view">
+    <div class="analysis-header">
+      <h2>Analysis</h2>
+      <div class="seg-control">
+        <button class="seg-btn active" data-range="week">Week</button>
+        <button class="seg-btn" data-range="month">Month</button>
+        <button class="seg-btn" data-range="year">Year</button>
+        <button class="seg-btn" data-range="custom">Custom</button>
+      </div>
+      <div class="analysis-range" id="custom-range" style="display:none">
+        <input type="date" id="range-from" />
+        <span style="color:var(--text2)">to</span>
+        <input type="date" id="range-to" />
+        <button class="btn-secondary" id="apply-range">Apply</button>
+      </div>
+    </div>
+
+    <div class="analysis-grid" id="analysis-kpis"></div>
+
+    <div class="analysis-section">
+      <h3>Pomodoros per day</h3>
+      <div class="bar-chart" id="pomo-chart"></div>
+    </div>
+
+    <div class="analysis-section">
+      <h3>Tasks completed per day</h3>
+      <div class="bar-chart" id="task-chart"></div>
+    </div>
+
+    <div class="analysis-section">
+      <h3>Day-by-day breakdown</h3>
+      <div class="day-rows" id="day-rows"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─────────────────────────────────────────────
+//  Storage helpers
+// ─────────────────────────────────────────────
+const KEY = 'pt_data_v1';
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+}
+function save(data) { localStorage.setItem(KEY, JSON.stringify(data)); }
+
+function dayKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getDay(data, key) {
+  if (!data[key]) data[key] = { tasks: [], pomos: [], notes: '' };
+  return data[key];
+}
+
+// ─────────────────────────────────────────────
+//  Date navigation
+// ─────────────────────────────────────────────
+let currentDate = new Date();
+currentDate.setHours(0,0,0,0);
+
+const dateDisplay = document.getElementById('date-display');
+
+function formatDateDisplay(d) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  const label = diff === 0 ? ' (Today)' : diff === -1 ? ' (Yesterday)' : diff === 1 ? ' (Tomorrow)' : '';
+  return d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }) + label;
+}
+
+function setDate(d) {
+  currentDate = new Date(d); currentDate.setHours(0,0,0,0);
+  dateDisplay.textContent = formatDateDisplay(currentDate);
+  renderDaily();
+}
+
+document.getElementById('prev-day').onclick = () => {
+  const d = new Date(currentDate); d.setDate(d.getDate() - 1); setDate(d);
+};
+document.getElementById('next-day').onclick = () => {
+  const d = new Date(currentDate); d.setDate(d.getDate() + 1); setDate(d);
+};
+document.getElementById('today-btn').onclick = () => setDate(new Date());
+
+// ─────────────────────────────────────────────
+//  Nav tabs
+// ─────────────────────────────────────────────
+document.querySelectorAll('.nav-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.view + '-view').classList.add('active');
+    if (btn.dataset.view === 'analysis') renderAnalysis();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  Tasks
+// ─────────────────────────────────────────────
+function renderTasks() {
+  const data = load();
+  const key = dayKey(currentDate);
+  const day = getDay(data, key);
+  const list = document.getElementById('task-list');
+  const stats = document.getElementById('task-stats');
+
+  const done = day.tasks.filter(t => t.done).length;
+  stats.textContent = day.tasks.length
+    ? `${done} / ${day.tasks.length} completed`
+    : 'No tasks yet.';
+
+  list.innerHTML = '';
+  day.tasks.forEach((t, i) => {
+    const el = document.createElement('div');
+    el.className = 'task-item' + (t.done ? ' done' : '');
+
+    const chk = document.createElement('button');
+    chk.className = 'task-check';
+    chk.title = t.done ? 'Mark incomplete' : 'Mark complete';
+    chk.onclick = () => {
+      const d2 = load(); getDay(d2, key).tasks[i].done = !t.done; save(d2); renderTasks();
+    };
+
+    const txt = document.createElement('span');
+    txt.className = 'task-text';
+    txt.textContent = t.text;
+
+    const del = document.createElement('button');
+    del.className = 'task-del';
+    del.textContent = '×';
+    del.title = 'Delete';
+    del.onclick = () => {
+      const d2 = load(); getDay(d2, key).tasks.splice(i, 1); save(d2); renderTasks();
+    };
+
+    el.append(chk, txt, del);
+    list.appendChild(el);
+  });
+}
+
+function addTask() {
+  const inp = document.getElementById('task-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  const data = load(); const key = dayKey(currentDate);
+  getDay(data, key).tasks.push({ text, done: false });
+  save(data); inp.value = ''; renderTasks();
+}
+
+document.getElementById('add-task-btn').onclick = addTask;
+document.getElementById('task-input').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+
+// ─────────────────────────────────────────────
+//  Pomodoro timer
+// ─────────────────────────────────────────────
+const CIRC = 2 * Math.PI * 72; // 452.39
+let timerState = { running: false, mode: 'work', remaining: 0, total: 0, interval: null };
+
+function cfgDurations() {
+  return {
+    work: parseInt(document.getElementById('cfg-work').value) * 60 || 1500,
+    short: parseInt(document.getElementById('cfg-short').value) * 60 || 300,
+    long: parseInt(document.getElementById('cfg-long').value) * 60 || 900,
+  };
+}
+
+function resetTimer(mode) {
+  clearInterval(timerState.interval);
+  const dur = cfgDurations()[mode];
+  timerState = { running: false, mode, remaining: dur, total: dur, interval: null };
+  renderTimerFace();
+}
+
+function renderTimerFace() {
+  const { remaining, total, mode, running } = timerState;
+  const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+  const s = (remaining % 60).toString().padStart(2, '0');
+  document.getElementById('timer-digits').textContent = `${m}:${s}`;
+  const labels = { work: 'Work', short: 'Short Break', long: 'Long Break' };
+  document.getElementById('timer-label').textContent = labels[mode];
+  const pct = total > 0 ? remaining / total : 1;
+  document.getElementById('ring-fg').style.strokeDashoffset = CIRC * (1 - pct);
+  document.getElementById('pomo-start').textContent = running ? 'Pause' : (remaining < total ? 'Resume' : 'Start');
+}
+
+function logPomodoro(mode) {
+  const data = load(); const key = dayKey(currentDate);
+  const day = getDay(data, key);
+  const labels = { work: 'Work', short: 'Short Break', long: 'Long Break' };
+  const dur = cfgDurations()[mode];
+  day.pomos.push({
+    type: mode,
+    label: labels[mode],
+    duration: dur,
+    completedAt: new Date().toISOString(),
+  });
+  save(data);
+  renderPomoLog();
+  renderPomoSummary();
+}
+
+function startTimer() {
+  if (timerState.running) {
+    clearInterval(timerState.interval);
+    timerState.running = false;
+    timerState.interval = null;
+    renderTimerFace();
+    return;
+  }
+  timerState.running = true;
+  timerState.interval = setInterval(() => {
+    timerState.remaining--;
+    renderTimerFace();
+    if (timerState.remaining <= 0) {
+      clearInterval(timerState.interval);
+      timerState.running = false;
+      timerState.interval = null;
+      logPomodoro(timerState.mode);
+      notify(timerState.mode);
+      resetTimer(timerState.mode);
+    }
+  }, 1000);
+  renderTimerFace();
+}
+
+function notify(mode) {
+  const msgs = { work: 'Work session done! Take a break.', short: 'Break over! Back to work.', long: 'Long break done! Ready to focus?' };
+  if (Notification.permission === 'granted') {
+    new Notification('Productivity Tracker', { body: msgs[mode], icon: '' });
+  }
+}
+
+document.getElementById('pomo-start').onclick = startTimer;
+document.getElementById('pomo-reset').onclick = () => resetTimer(timerState.mode);
+
+document.querySelectorAll('.pomo-mode-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.pomo-mode-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    resetTimer(btn.dataset.mode);
+  });
+});
+
+['cfg-work','cfg-short','cfg-long'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => resetTimer(timerState.mode));
+});
+
+// ─────────────────────────────────────────────
+//  Pomodoro log + summary
+// ─────────────────────────────────────────────
+function renderPomoSummary() {
+  const data = load(); const key = dayKey(currentDate);
+  const day = getDay(data, key);
+  const workSessions = day.pomos.filter(p => p.type === 'work');
+  const workMin = Math.round(workSessions.reduce((a, p) => a + p.duration, 0) / 60);
+  const breaks = day.pomos.filter(p => p.type !== 'work').length;
+  const el = document.getElementById('pomo-summary');
+  el.innerHTML = `
+    <div class="pomo-stat"><div class="pomo-stat-val" style="color:var(--accent2)">${workSessions.length}</div><div class="pomo-stat-lbl">Sessions</div></div>
+    <div class="pomo-stat"><div class="pomo-stat-val" style="color:var(--accent)">${workMin}m</div><div class="pomo-stat-lbl">Focus time</div></div>
+    <div class="pomo-stat"><div class="pomo-stat-val" style="color:var(--green)">${breaks}</div><div class="pomo-stat-lbl">Breaks</div></div>
+  `;
+}
+
+function renderPomoLog() {
+  const data = load(); const key = dayKey(currentDate);
+  const day = getDay(data, key);
+  const el = document.getElementById('pomo-log');
+  if (!day.pomos.length) { el.innerHTML = '<div class="empty-state">No sessions logged yet.</div>'; return; }
+  el.innerHTML = '';
+  [...day.pomos].reverse().forEach((p, ri) => {
+    const i = day.pomos.length - 1 - ri;
+    const tagClass = p.type === 'work' ? 'tag-work' : p.type === 'short' ? 'tag-short' : 'tag-long';
+    const time = new Date(p.completedAt).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+    const durMin = Math.round(p.duration / 60);
+    const row = document.createElement('div');
+    row.className = 'pomo-entry';
+    row.innerHTML = `
+      <span class="pomo-entry-tag ${tagClass}">${p.label}</span>
+      <span style="font-size:.8rem;color:var(--text2)">${durMin} min · ${time}</span>
+      <button class="pomo-entry-del" title="Delete">×</button>
+    `;
+    row.querySelector('.pomo-entry-del').onclick = () => {
+      const d2 = load(); getDay(d2, key).pomos.splice(i, 1); save(d2); renderPomoLog(); renderPomoSummary();
+    };
+    el.appendChild(row);
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Notes
+// ─────────────────────────────────────────────
+const notesArea = document.getElementById('day-notes');
+let notesSaveTimer = null;
+notesArea.addEventListener('input', () => {
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer = setTimeout(() => {
+    const data = load(); const key = dayKey(currentDate);
+    getDay(data, key).notes = notesArea.value;
+    save(data);
+  }, 400);
+});
+
+// ─────────────────────────────────────────────
+//  Render daily view
+// ─────────────────────────────────────────────
+function renderDaily() {
+  renderTasks();
+  renderPomoLog();
+  renderPomoSummary();
+  const data = load(); const key = dayKey(currentDate);
+  notesArea.value = getDay(data, key).notes || '';
+  resetTimer(timerState.mode);
+}
+
+// ─────────────────────────────────────────────
+//  Analysis view
+// ─────────────────────────────────────────────
+let analysisRange = 'week';
+let customFrom = null, customTo = null;
+
+document.querySelectorAll('.seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    analysisRange = btn.dataset.range;
+    document.getElementById('custom-range').style.display = analysisRange === 'custom' ? 'flex' : 'none';
+    if (analysisRange !== 'custom') renderAnalysis();
+  });
+});
+
+document.getElementById('apply-range').onclick = () => {
+  customFrom = document.getElementById('range-from').value;
+  customTo = document.getElementById('range-to').value;
+  if (customFrom && customTo) renderAnalysis();
+};
+
+function getRangeDates() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let from = new Date(today), to = new Date(today);
+
+  if (analysisRange === 'week') {
+    from.setDate(today.getDate() - 6);
+  } else if (analysisRange === 'month') {
+    from.setDate(today.getDate() - 29);
+  } else if (analysisRange === 'year') {
+    from.setDate(today.getDate() - 364);
+  } else if (analysisRange === 'custom' && customFrom && customTo) {
+    from = new Date(customFrom + 'T00:00:00');
+    to = new Date(customTo + 'T00:00:00');
+  }
+  return { from, to };
+}
+
+function daysInRange(from, to) {
+  const days = [];
+  const cur = new Date(from);
+  while (cur <= to) { days.push(dayKey(cur)); cur.setDate(cur.getDate() + 1); }
+  return days;
+}
+
+function renderAnalysis() {
+  const data = load();
+  const { from, to } = getRangeDates();
+  const days = daysInRange(from, to);
+
+  // KPIs
+  let totalWork = 0, totalFocusMin = 0, totalTasks = 0, totalDone = 0, activeDays = 0;
+  days.forEach(k => {
+    const d = data[k];
+    if (!d) return;
+    const work = (d.pomos || []).filter(p => p.type === 'work');
+    totalWork += work.length;
+    totalFocusMin += work.reduce((a, p) => a + p.duration, 0);
+    totalTasks += (d.tasks || []).length;
+    totalDone += (d.tasks || []).filter(t => t.done).length;
+    if (work.length || (d.tasks || []).length) activeDays++;
+  });
+
+  const avgWork = days.length ? (totalWork / days.length).toFixed(1) : 0;
+  const kpiEl = document.getElementById('analysis-kpis');
+  kpiEl.innerHTML = `
+    <div class="kpi-card accent-pomo">
+      <div class="val">${totalWork}</div>
+      <div class="lbl">Work sessions</div>
+      <div class="sub">${Math.round(totalFocusMin/60)}h ${Math.round(totalFocusMin%60)}m focus</div>
+    </div>
+    <div class="kpi-card accent-pomo">
+      <div class="val">${avgWork}</div>
+      <div class="lbl">Sessions / day avg</div>
+      <div class="sub">over ${days.length} days</div>
+    </div>
+    <div class="kpi-card accent-tasks">
+      <div class="val">${totalDone}</div>
+      <div class="lbl">Tasks completed</div>
+      <div class="sub">${totalTasks} total created</div>
+    </div>
+    <div class="kpi-card accent-work">
+      <div class="val">${totalTasks ? Math.round(totalDone/totalTasks*100) : 0}%</div>
+      <div class="lbl">Completion rate</div>
+      <div class="sub">${activeDays} active days</div>
+    </div>
+  `;
+
+  // Bar charts
+  renderBarChart('pomo-chart', days, data, d => (d?.pomos||[]).filter(p=>p.type==='work').length, 'pomo-bar', v => `${v} session${v!==1?'s':''}`);
+  renderBarChart('task-chart', days, data, d => (d?.tasks||[]).filter(t=>t.done).length, 'task-bar', v => `${v} done`);
+
+  // Day rows
+  const rowEl = document.getElementById('day-rows');
+  rowEl.innerHTML = '';
+  const activeDayKeys = [...days].reverse().filter(k => data[k] && ((data[k].pomos||[]).length || (data[k].tasks||[]).length));
+  if (!activeDayKeys.length) {
+    rowEl.innerHTML = '<div class="empty-state">No data in this range yet.</div>'; return;
+  }
+  activeDayKeys.forEach(k => {
+    const d = data[k];
+    const workCount = (d.pomos||[]).filter(p=>p.type==='work').length;
+    const taskDone = (d.tasks||[]).filter(t=>t.done).length;
+    const taskTotal = (d.tasks||[]).length;
+    const date = new Date(k + 'T00:00:00');
+    const row = document.createElement('div');
+    row.className = 'day-row';
+    row.innerHTML = `
+      <span class="day-row-date">${date.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span>
+      <div class="day-row-badges">
+        <span class="badge"><span class="badge-dot dot-pomo"></span>${workCount} session${workCount!==1?'s':''}</span>
+        <span class="badge"><span class="badge-dot dot-task"></span>${taskDone}/${taskTotal} tasks</span>
+      </div>
+      ${d.notes ? `<span class="day-row-note">${escHtml(d.notes)}</span>` : ''}
+    `;
+    row.onclick = () => {
+      setDate(date);
+      document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelector('[data-view="daily"]').classList.add('active');
+      document.getElementById('daily-view').classList.add('active');
+    };
+    rowEl.appendChild(row);
+  });
+}
+
+function renderBarChart(id, days, data, valueFn, barClass, tipFn) {
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  const values = days.map(k => valueFn(data[k]));
+  const max = Math.max(...values, 1);
+  const showLabels = days.length <= 31;
+
+  days.forEach((k, i) => {
+    const v = values[i];
+    const pct = v / max;
+    const date = new Date(k + 'T00:00:00');
+    const lbl = date.toLocaleDateString('en-US', days.length <= 14 ? {weekday:'short'} : {month:'short',day:'numeric'});
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    const bar = document.createElement('div');
+    bar.className = `bar ${barClass}`;
+    bar.style.height = `${Math.max(pct * 90, v > 0 ? 4 : 0)}px`;
+    bar.dataset.tip = `${k}: ${tipFn(v)}`;
+    col.appendChild(bar);
+    if (showLabels) {
+      const label = document.createElement('div');
+      label.className = 'bar-label';
+      label.textContent = lbl;
+      col.appendChild(label);
+    }
+    el.appendChild(col);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─────────────────────────────────────────────
+//  Init
+// ─────────────────────────────────────────────
+if (Notification.permission === 'default') Notification.requestPermission();
+setDate(new Date());
+</script>
+</body>
+</html>
