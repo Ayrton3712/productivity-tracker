@@ -708,7 +708,7 @@ document.getElementById('task-input').addEventListener('keydown', e => { if (e.k
 //  Pomodoro timer
 // ─────────────────────────────────────────────
 const CIRC = 2 * Math.PI * 72;
-let timerState = { running: false, mode: 'work', remaining: 0, total: 0, interval: null };
+let timerState = { running: false, mode: 'work', remaining: 0, total: 0, interval: null, startedAt: null, startRemaining: 0 };
 
 function cfgDurations() {
   return {
@@ -721,8 +721,28 @@ function cfgDurations() {
 function resetTimer(mode) {
   clearInterval(timerState.interval);
   const dur = cfgDurations()[mode];
-  timerState = { running: false, mode, remaining: dur, total: dur, interval: null };
+  timerState = { running: false, mode, remaining: dur, total: dur, interval: null, startedAt: null, startRemaining: 0 };
   renderTimerFace();
+}
+
+function calcRemaining() {
+  if (!timerState.running || !timerState.startedAt) return timerState.remaining;
+  const elapsed = Math.floor((Date.now() - timerState.startedAt) / 1000);
+  return Math.max(0, timerState.startRemaining - elapsed);
+}
+
+function timerTick() {
+  const remaining = calcRemaining();
+  timerState.remaining = remaining;
+  renderTimerFace();
+  if (remaining <= 0) {
+    clearInterval(timerState.interval);
+    timerState.running = false; timerState.interval = null; timerState.startedAt = null;
+    const mode = timerState.mode;
+    logPomodoro(mode);
+    sendNotification(mode);
+    resetTimer(mode);
+  }
 }
 
 function renderTimerFace() {
@@ -752,24 +772,21 @@ function logPomodoro(mode) {
 
 function startTimer() {
   if (timerState.running) {
+    timerState.remaining = calcRemaining();
     clearInterval(timerState.interval);
-    timerState.running = false; timerState.interval = null;
+    timerState.running = false; timerState.interval = null; timerState.startedAt = null;
     renderTimerFace(); return;
   }
   timerState.running = true;
-  timerState.interval = setInterval(() => {
-    timerState.remaining--;
-    renderTimerFace();
-    if (timerState.remaining <= 0) {
-      clearInterval(timerState.interval);
-      timerState.running = false; timerState.interval = null;
-      logPomodoro(timerState.mode);
-      sendNotification(timerState.mode);
-      resetTimer(timerState.mode);
-    }
-  }, 1000);
+  timerState.startedAt = Date.now();
+  timerState.startRemaining = timerState.remaining;
+  timerState.interval = setInterval(timerTick, 500);
   renderTimerFace();
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && timerState.running) timerTick();
+});
 
 function sendNotification(mode) {
   if (Notification.permission !== 'granted') return;
