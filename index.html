@@ -101,6 +101,18 @@
       background: none; color: var(--text2); cursor: pointer; transition: all .15s;
     }
     #today-btn:hover { color: var(--accent); border-color: var(--accent); }
+    /* ── Timer toast ── */
+    #timer-toast {
+      position: fixed; top: -80px; left: 50%; transform: translateX(-50%);
+      background: var(--surface); border: 1px solid var(--accent2);
+      color: var(--text); padding: 14px 28px; border-radius: 10px;
+      font-size: .95rem; font-weight: 500; z-index: 200;
+      box-shadow: 0 4px 24px rgba(0,0,0,.4);
+      transition: top .35s cubic-bezier(.22,1,.36,1);
+      white-space: nowrap;
+    }
+    #timer-toast.show { top: 20px; }
+
     .sync-dot {
       width: 7px; height: 7px; border-radius: 50%;
       background: var(--green); flex-shrink: 0; transition: background .3s;
@@ -334,6 +346,9 @@
   </style>
 </head>
 <body>
+
+<!-- ── Timer toast ── -->
+<div id="timer-toast"></div>
 
 <!-- ── Auth overlay ── -->
 <div id="auth-overlay">
@@ -788,10 +803,43 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && timerState.running) timerTick();
 });
 
+const MSGS = {
+  work:  'Work session done! Take a break.',
+  short: 'Break over! Back to work.',
+  long:  'Long break done! Ready to focus?',
+};
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('timer-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 6000);
+}
+
+function playBeep(mode) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const beeps = mode === 'work' ? [440, 540] : [540, 440];
+    beeps.forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.25;
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      osc.start(t); osc.stop(t + 0.4);
+    });
+  } catch (e) {}
+}
+
 function sendNotification(mode) {
-  if (Notification.permission !== 'granted') return;
-  const msgs = { work: 'Work session done! Take a break.', short: 'Break over! Back to work.', long: 'Long break done! Ready to focus?' };
-  new Notification('生產力', { body: msgs[mode] });
+  const msg = MSGS[mode];
+  showToast(msg);
+  playBeep(mode);
+  if (Notification.permission === 'granted') new Notification('生產力', { body: msg });
 }
 
 document.getElementById('pomo-start').onclick = startTimer;
